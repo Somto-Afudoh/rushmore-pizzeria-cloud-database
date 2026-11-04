@@ -163,6 +163,36 @@ def generate_orders(number_of_orders, customers, stores):
 
     return records
 
+
+# Generate three distinct menu-item lines for each order.
+def generate_order_items(orders, menu_items):
+    if not orders:
+        raise ValueError("Order items require existing orders.")
+
+    if len(menu_items) < 3:
+        raise ValueError("At least three menu items are required.")
+
+    records = []
+
+    for order in orders:
+        # Sampling without replacement prevents duplicate items per order.
+        selected_items = fake.random_elements(
+            elements=menu_items,
+            length=3,
+            unique=True
+        )
+
+        for item in selected_items:
+            row = {
+                'order_id': order['order_id'],
+                'item_id': item['item_id'],
+                'quantity': fake.random_int(min=1, max=3)
+            }
+
+            records.append(row)
+
+    return records
+
     
 # Validate customer records before loading them
 def validate_customers(records):
@@ -469,6 +499,73 @@ def validate_orders(records, customers, stores, expected_count):
     print(f"Order validation passed for {len(records)} records.")
 
 
+# Validate foreign keys, quantities and composite-key uniqueness.
+def validate_order_items(records, orders, menu_items):
+    expected_count = len(orders) * 3
+
+    if len(records) != expected_count:
+        raise ValueError(
+            f"Order-item validation failed: expected "
+            f"{expected_count} records."
+        )
+
+    valid_order_ids = {row['order_id'] for row in orders}
+    valid_item_ids = {row['item_id'] for row in menu_items}
+
+    required_keys = {'order_id', 'item_id', 'quantity'}
+    seen_pairs = set()
+    lines_per_order = {
+        order_id: 0 for order_id in valid_order_ids
+    }
+
+    for position, row in enumerate(records, start=1):
+        if not isinstance(row, dict) or required_keys - row.keys():
+            raise ValueError(
+                f"Order item {position}: missing required fields."
+            )
+
+        order_id = row['order_id']
+        item_id = row['item_id']
+        quantity = row['quantity']
+
+        # Check that both referenced records exist.
+        if order_id not in valid_order_ids:
+            raise ValueError(
+                f"Order item {position}: unknown order ID."
+            )
+
+        if item_id not in valid_item_ids:
+            raise ValueError(
+                f"Order item {position}: unknown menu-item ID."
+            )
+
+        # Reject NULL, booleans, fractions and non-positive quantities.
+        if type(quantity) is not int or not 1 <= quantity <= 2147483647:
+            raise ValueError(
+                f"Order item {position}: quantity must be a positive "
+                "integer within PostgreSQL INTEGER limits."
+            )
+
+        # Match the table's composite primary key.
+        pair = (order_id, item_id)
+
+        if pair in seen_pairs:
+            raise ValueError(
+                f"Order item {position}: duplicate order/item pair {pair}."
+            )
+
+        seen_pairs.add(pair)
+        lines_per_order[order_id] += 1
+
+    # Enforce our generation rule, beyond the database constraints.
+    if any(count != 3 for count in lines_per_order.values()):
+        raise ValueError(
+            "Order-item validation failed: each order needs three lines."
+        )
+
+    print(f"Order-item validation passed for {len(records)} records.")
+
+
 # Insert customers in batches and return their database-generated IDs.
 def load_customers(connection, records):
     if not records:
@@ -698,6 +795,38 @@ def load_orders(connection, records):
     ]
 
 
+# Bulk insert order lines and return the inserted records.
+def load_order_items(connection, records):
+    values = [
+        (row['order_id'], row['item_id'], row['quantity'])
+        for row in records
+    ]
+
+    query = """
+        INSERT INTO order_items (order_id, item_id, quantity)
+        VALUES %s
+        RETURNING order_id, item_id, quantity;
+    """
+
+    with connection.cursor() as cursor:
+        returned_rows = execute_values(
+            cursor,
+            query,
+            values,
+            page_size=1000,
+            fetch=True
+        )
+
+    return [
+        {
+            'order_id': order_id,
+            'item_id': item_id,
+            'quantity': quantity
+        }
+        for order_id, item_id, quantity in returned_rows
+    ]
+
+
 # Coordinate generation, validation and small preview
 def main():
     # Generate records for each table.
@@ -816,6 +945,33 @@ def main():
                 load_orders
             )
 
+            # Generate order lines using actual database IDs.
+            order_items = generate_order_items(
+                loaded_orders, loaded_menu_items
+            )
+
+            validate_order_items(
+                order_items, loaded_orders, loaded_menu_items
+            )
+
+            # Load once or reuse the existing order lines.
+            loaded_order_items = reuse_or_load(
+                connection,
+                order_items,
+                "Order items",
+                """
+                    SELECT order_id, item_id, quantity
+                    FROM order_items
+                    ORDER BY order_id, item_id;
+                """,
+                load_order_items
+            )
+
+            # Also validate saved records when the table was reused.
+            validate_order_items(
+                loaded_order_items, loaded_orders, loaded_menu_items
+            )
+
         # Report success only after the transaction commits.
         print("Database preparation completed successfully.")
         print(f"Customers available: {len(loaded_customers)}")
@@ -823,6 +979,7 @@ def main():
         print(f"Menu items available: {len(loaded_menu_items)}")
         print(f"Ingredients available: {len(loaded_ingredients)}")
         print(f"Orders available: {len(loaded_orders)}")
+        print(f"Order items available: {len(loaded_order_items)}")
 
     finally:
         connection.close()
