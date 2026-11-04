@@ -409,6 +409,142 @@ def load_customers(connection, records):
     ]
 
 
+# Reuse a populated table or load it if empty.
+# The SELECT statements passed here are fixed queries from our code.
+def reuse_or_load(connection, records, table_label, select_query, loader):
+    with connection.cursor() as cursor:
+        cursor.execute(select_query)
+
+        column_names = [
+            description[0] for description in cursor.description
+        ]
+
+        existing_records = [
+            dict(zip(column_names, row))
+            for row in cursor.fetchall()
+        ]
+
+    if existing_records:
+        # Stop if the existing data doesn't match the expected volume.
+        if len(existing_records) != len(records):
+            raise ValueError(
+                f"{table_label}: found {len(existing_records)} existing "
+                f"records, but expected {len(records)}. "
+                "No additional records were inserted into this table."
+            )
+
+        print(
+            f"{table_label}: reusing "
+            f"{len(existing_records)} existing records."
+        )
+        return existing_records
+
+    # The table is empty, so insert the prepared records.
+    loaded_records = loader(connection, records)
+
+    print(
+        f"{table_label}: prepared "
+        f"{len(loaded_records)} new records for commit."
+    )
+    return loaded_records
+
+
+# Insert stores and return their IDs and opening dates for order generation.
+def load_stores(connection, records):
+    values = [
+        (
+            row['address'],
+            row['city'],
+            row['phone_number'],
+            row['opened_at']
+        )
+        for row in records
+    ]
+
+    query = """
+        INSERT INTO stores (
+            address, city, phone_number, opened_at
+        )
+        VALUES %s
+        RETURNING store_id, address, city, phone_number, opened_at;
+    """
+
+    with connection.cursor() as cursor:
+        returned_rows = execute_values(
+            cursor, query, values, page_size=1000, fetch=True
+        )
+
+    return [
+        {
+            'store_id': store_id,
+            'address': address,
+            'city': city,
+            'phone_number': phone_number,
+            'opened_at': opened_at
+        }
+        for store_id, address, city, phone_number, opened_at
+        in returned_rows
+    ]
+
+
+# Insert the menu catalogue and return the generated item IDs.
+def load_menu_items_to_db(connection, records):
+    values = [
+        (row['name'], row['category'], row['size'])
+        for row in records
+    ]
+
+    query = """
+        INSERT INTO menu_items (name, category, size)
+        VALUES %s
+        RETURNING item_id, name, category, size;
+    """
+
+    with connection.cursor() as cursor:
+        returned_rows = execute_values(
+            cursor, query, values, page_size=1000, fetch=True
+        )
+
+    return [
+        {
+            'item_id': item_id,
+            'name': name,
+            'category': category,
+            'size': size
+        }
+        for item_id, name, category, size in returned_rows
+    ]
+
+
+# Insert ingredients and their generated opening stock quantities.
+def load_ingredients(connection, records):
+    values = [
+        (row['name'], row['stock_quantity'], row['unit'])
+        for row in records
+    ]
+
+    query = """
+        INSERT INTO ingredients (name, stock_quantity, unit)
+        VALUES %s
+        RETURNING ingredient_id, name, stock_quantity, unit;
+    """
+
+    with connection.cursor() as cursor:
+        returned_rows = execute_values(
+            cursor, query, values, page_size=1000, fetch=True
+        )
+
+    return [
+        {
+            'ingredient_id': ingredient_id,
+            'name': name,
+            'stock_quantity': stock_quantity,
+            'unit': unit
+        }
+        for ingredient_id, name, stock_quantity, unit in returned_rows
+    ]
+
+
 # Coordinate generation, validation and small preview
 def main():
     # Generate records for each table.
@@ -449,20 +585,66 @@ def main():
     connection = create_connection()
 
     try:
-        # Commit on success; roll back if an exception occurs.
+        # All new inserts in this block commit together.
+        # If any step fails, the new inserts are rolled back.
         with connection:
-            loaded_customers = load_customers(connection, customers)
+            loaded_customers = reuse_or_load(
+                connection,
+                customers,
+                "Customers",
+                """
+                    SELECT customer_id, email, created_at
+                    FROM customers
+                    ORDER BY customer_id;
+                """,
+                load_customers
+            )
 
-        # This message runs only after the transaction commits.
-        print(f"{len(loaded_customers)} customers inserted successfully.")
+            loaded_stores = reuse_or_load(
+                connection,
+                stores,
+                "Stores",
+                """
+                    SELECT store_id, address, city, phone_number, opened_at
+                    FROM stores
+                    ORDER BY store_id;
+                """,
+                load_stores
+            )
 
-        print("Customer IDs returned by PostgreSQL:")
-        for row in loaded_customers[:5]:
-            print(row)
+            loaded_menu_items = reuse_or_load(
+                connection,
+                menu_items,
+                "Menu items",
+                """
+                    SELECT item_id, name, category, size
+                    FROM menu_items
+                    ORDER BY item_id;
+                """,
+                load_menu_items_to_db
+            )
+
+            loaded_ingredients = reuse_or_load(
+                connection,
+                ingredients,
+                "Ingredients",
+                """
+                    SELECT ingredient_id, name, stock_quantity, unit
+                    FROM ingredients
+                    ORDER BY ingredient_id;
+                """,
+                load_ingredients
+            )
+
+        # Report success only after the transaction commits.
+        print("Database preparation completed successfully.")
+        print(f"Customers available: {len(loaded_customers)}")
+        print(f"Stores available: {len(loaded_stores)}")
+        print(f"Menu items available: {len(loaded_menu_items)}")
+        print(f"Ingredients available: {len(loaded_ingredients)}")
 
     finally:
-        # The transaction context does not close the connection.
-        connection.close()   
+        connection.close()
 
 
 # Run the workflow when this script is executed directly.
