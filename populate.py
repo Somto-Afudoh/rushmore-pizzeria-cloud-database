@@ -6,6 +6,7 @@ from pathlib import Path
 from faker import Faker
 from decimal import Decimal
 from psycopg2.extras import execute_values
+from datetime import datetime
 
 fake = Faker()
 
@@ -118,6 +119,44 @@ def generate_ingredients():
             'name': ingredient['name'],
             'stock_quantity': stock_quantity,
             'unit': ingredient['unit']
+        }
+
+        records.append(row)
+
+    return records
+
+
+# Generate orders using existing customer and store records.
+def generate_orders(number_of_orders, customers, stores):
+    if not customers or not stores:
+        raise ValueError("Orders require existing customers and stores.")
+
+    records = []
+
+    for _ in range(number_of_orders):
+        customer = fake.random_element(elements=customers)
+        store = fake.random_element(elements=stores)
+
+        # An order cannot precede registration or store opening.
+        earliest_order_date = max(
+            customer['created_at'],
+            store['opened_at']
+        )
+
+        row = {
+            'customer_id': customer['customer_id'],
+            'store_id': store['store_id'],
+            'order_timestamp': fake.date_time_between(
+                start_date=earliest_order_date,
+                end_date='now'
+            ),
+            # Simulated total because the schema has no item prices.
+            'total_amount': fake.pydecimal(
+                left_digits=3,
+                right_digits=2,
+                min_value=5,
+                max_value=150
+            )
         }
 
         records.append(row)
@@ -358,6 +397,78 @@ def validate_ingredients(records):
     print(f"Ingredient validation passed for {len(records)} records.")
 
 
+# Check relationships, dates and totals before loading orders.
+def validate_orders(records, customers, stores, expected_count):
+    if len(records) != expected_count:
+        raise ValueError(
+            f"Order validation failed: expected {expected_count} records."
+        )
+
+    # Lookups let us check IDs and dates efficiently.
+    customer_dates = {
+        row['customer_id']: row['created_at']
+        for row in customers
+    }
+    store_dates = {
+        row['store_id']: row['opened_at']
+        for row in stores
+    }
+
+    required_keys = {
+        'customer_id', 'store_id', 'order_timestamp', 'total_amount'
+    }
+    now = datetime.now()
+
+    for position, row in enumerate(records, start=1):
+        if not isinstance(row, dict) or required_keys - row.keys():
+            raise ValueError(
+                f"Order {position}: missing required fields."
+            )
+
+        customer_id = row['customer_id']
+        store_id = row['store_id']
+
+        if customer_id not in customer_dates:
+            raise ValueError(f"Order {position}: unknown customer ID.")
+
+        if store_id not in store_dates:
+            raise ValueError(f"Order {position}: unknown store ID.")
+
+        timestamp = row['order_timestamp']
+
+        if not isinstance(timestamp, datetime):
+            raise ValueError(f"Order {position}: invalid timestamp.")
+
+        earliest_date = max(
+            customer_dates[customer_id],
+            store_dates[store_id]
+        )
+
+        if not earliest_date <= timestamp <= now:
+            raise ValueError(
+                f"Order {position}: timestamp is outside the valid range."
+            )
+
+        amount = row['total_amount']
+
+        if not isinstance(amount, Decimal) or not amount.is_finite():
+            raise ValueError(
+                f"Order {position}: total must be a finite Decimal."
+            )
+
+        if not Decimal('0') <= amount <= Decimal('99999999.99'):
+            raise ValueError(
+                f"Order {position}: total is outside NUMERIC(10,2) limits."
+            )
+
+        if amount != amount.quantize(Decimal('0.01')):
+            raise ValueError(
+                f"Order {position}: total exceeds two decimal places."
+            )
+
+    print(f"Order validation passed for {len(records)} records.")
+
+
 # Insert customers in batches and return their database-generated IDs.
 def load_customers(connection, records):
     if not records:
@@ -545,6 +656,48 @@ def load_ingredients(connection, records):
     ]
 
 
+# Bulk insert orders and retrieve their actual database IDs.
+def load_orders(connection, records):
+    values = [
+        (
+            row['customer_id'],
+            row['store_id'],
+            row['order_timestamp'],
+            row['total_amount']
+        )
+        for row in records
+    ]
+
+    query = """
+        INSERT INTO orders (
+            customer_id, store_id, order_timestamp, total_amount
+        )
+        VALUES %s
+        RETURNING
+            order_id, customer_id, store_id,
+            order_timestamp, total_amount;
+    """
+
+    with connection.cursor() as cursor:
+        returned_rows = execute_values(
+            cursor, query, values, page_size=1000, fetch=True
+        )
+
+    return [
+        {
+            'order_id': order_id,
+            'customer_id': customer_id,
+            'store_id': store_id,
+            'order_timestamp': order_timestamp,
+            'total_amount': total_amount
+        }
+        for (
+            order_id, customer_id, store_id,
+            order_timestamp, total_amount
+        ) in returned_rows
+    ]
+
+
 # Coordinate generation, validation and small preview
 def main():
     # Generate records for each table.
@@ -636,12 +789,40 @@ def main():
                 load_ingredients
             )
 
+            # Prepare orders using the actual saved customer/store records.
+            orders = generate_orders(
+                30000, loaded_customers, loaded_stores
+            )
+
+            validate_orders(
+                orders,
+                loaded_customers,
+                loaded_stores,
+                expected_count=30000
+            )
+
+            # Load an empty orders table or reuse its existing records.
+            loaded_orders = reuse_or_load(
+                connection,
+                orders,
+                "Orders",
+                """
+                    SELECT
+                        order_id, customer_id, store_id,
+                        order_timestamp, total_amount
+                    FROM orders
+                    ORDER BY order_id;
+                """,
+                load_orders
+            )
+
         # Report success only after the transaction commits.
         print("Database preparation completed successfully.")
         print(f"Customers available: {len(loaded_customers)}")
         print(f"Stores available: {len(loaded_stores)}")
         print(f"Menu items available: {len(loaded_menu_items)}")
         print(f"Ingredients available: {len(loaded_ingredients)}")
+        print(f"Orders available: {len(loaded_orders)}")
 
     finally:
         connection.close()
