@@ -41,3 +41,27 @@ ON public.orders (customer_id, order_timestamp DESC);
 
 ANALYZE public.orders;
 
+-- Find a store ID
+SELECT store_id, city
+FROM stores
+ORDER BY store_id;
+
+-- Measure retrieval of a store's orders for October 2026.
+EXPLAIN (ANALYZE, BUFFERS)
+SELECT
+    order_id,
+    customer_id,
+    store_id,
+    order_timestamp,
+    total_amount
+FROM orders
+WHERE store_id = 2
+  AND order_timestamp >= TIMESTAMP '2026-10-01'
+  AND order_timestamp < TIMESTAMP '2026-11-01'
+ORDER BY order_timestamp DESC;
+
+-- Support store-specific order history within a date range.
+CREATE INDEX idx_orders_store_timestamp
+ON public.orders (store_id, order_timestamp DESC);
+
+ANALYZE public.orders;
