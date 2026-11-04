@@ -1,0 +1,182 @@
+[
+    {
+    "name": "Wheat Flour",
+    "unit": "kg"
+    },
+    {
+    "name": "Dried Yeast",
+    "unit": "kg"
+    },
+    {
+    "name": "Salt",
+    "unit": "kg"
+    },
+    {
+    "name": "Caster Sugar",
+    "unit": "kg"
+    },
+    {
+    "name": "Olive Oil",
+    "unit": "liters"
+    },
+    {
+    "name": "Tomato Passata",
+    "unit": "liters"
+    },
+    {
+    "name": "Mozzarella Cheese",
+    "unit": "kg"
+    },
+    {
+    "name": "Cheddar Cheese",
+    "unit": "kg"
+    },
+    {
+    "name": "Parmesan Cheese",
+    "unit": "kg"
+    },
+    {
+    "name": "Pepperoni",
+    "unit": "kg"
+    },
+    {
+    "name": "Chicken Breast",
+    "unit": "kg"
+    },
+    {
+    "name": "Cooked Ham",
+    "unit": "kg"
+    },
+    {
+    "name": "Cooked Beef",
+    "unit": "kg"
+    },
+    {
+    "name": "Chicken Wings",
+    "unit": "kg"
+    },
+    {
+    "name": "Mushrooms",
+    "unit": "kg"
+    },
+    {
+    "name": "Mixed Bell Peppers",
+    "unit": "kg"
+    },
+    {
+    "name": "Red Onions",
+    "unit": "kg"
+    },
+    {
+    "name": "Black Olives",
+    "unit": "kg"
+    },
+    {
+    "name": "Fresh Tomatoes",
+    "unit": "kg"
+    },
+    {
+    "name": "Lettuce",
+    "unit": "kg"
+    },
+    {
+    "name": "Cucumber",
+    "unit": "kg"
+    },
+    {
+    "name": "Potatoes",
+    "unit": "kg"
+    },
+    {
+    "name": "Garlic",
+    "unit": "kg"
+    },
+    {
+    "name": "Fresh Basil",
+    "unit": "kg"
+    },
+    {
+    "name": "Dried Oregano",
+    "unit": "kg"
+    },
+    {
+    "name": "BBQ Sauce",
+    "unit": "liters"
+    },
+    {
+    "name": "Salad Dressing",
+    "unit": "liters"
+    },
+    {
+    "name": "Butter",
+    "unit": "kg"
+    },
+    {
+    "name": "Baguette",
+    "unit": "units"
+    },
+    {
+    "name": "Breadcrumbs",
+    "unit": "kg"
+    },
+    {
+    "name": "Eggs",
+    "unit": "units"
+    },
+    {
+    "name": "Whole Milk",
+    "unit": "liters"
+    },
+    {
+    "name": "Double Cream",
+    "unit": "liters"
+    },
+    {
+    "name": "Dark Chocolate",
+    "unit": "kg"
+    },
+    {
+    "name": "Cocoa Powder",
+    "unit": "kg"
+    },
+    {
+    "name": "Cream Cheese",
+    "unit": "kg"
+    },
+    {
+    "name": "Mascarpone Cheese",
+    "unit": "kg"
+    },
+    {
+    "name": "Vanilla Extract",
+    "unit": "liters"
+    },
+    {
+    "name": "Digestive Biscuits",
+    "unit": "kg"
+    },
+    {
+    "name": "Still Water Bottle 500ml",
+    "unit": "units"
+    },
+    {
+    "name": "Sparkling Water Bottle 500ml",
+    "unit": "units"
+    },
+    {
+    "name": "Cola Can 330ml",
+    "unit": "units"
+    },
+    {
+    "name": "Diet Cola Can 330ml",
+    "unit": "units"
+    },
+    {
+    "name": "Lemonade Can 330ml",
+    "unit": "units"
+    },
+    {
+    "name": "Orange Juice Bottle 250ml",
+    "unit": "units"
+    }
+]
