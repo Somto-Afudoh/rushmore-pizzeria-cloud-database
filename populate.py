@@ -193,37 +193,134 @@ def generate_order_items(orders, menu_items):
 
     return records
 
-    
-# Validate customer records before loading them
+
+# Check required text fields, column lengths and unique values.
+def validate_text_fields(records, table_label, field_limits, unique_fields):
+    if not isinstance(records, list) or not records:
+        raise ValueError(
+            f"{table_label}: expected a non-empty list of records."
+        )
+
+    seen_values = {field: set() for field in unique_fields}
+
+    for position, row in enumerate(records, start=1):
+        if not isinstance(row, dict):
+            raise ValueError(
+                f"{table_label} record {position}: expected a dictionary."
+            )
+
+        for field, max_length in field_limits.items():
+            value = row.get(field)
+
+            # Reject missing fields, NULL, non-text values and blank text.
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError(
+                    f"{table_label} record {position}: "
+                    f"{field} must be a non-empty string."
+                )
+
+            if len(value) > max_length:
+                raise ValueError(
+                    f"{table_label} record {position}: "
+                    f"{field} exceeds {max_length} characters."
+                )
+
+            if field in seen_values:
+                # Compare the actual values, as generated.
+                if value in seen_values[field]:
+                    raise ValueError(
+                        f"{table_label} record {position}: "
+                        f"duplicate {field}."
+                    )
+
+                seen_values[field].add(value)
+
+
+# Validate customer records before loading them.
 def validate_customers(records):
-    long_phones = [
-        row for row in records
-        if len(row['phone_number']) > 20
-    ]
+    validate_text_fields(
+        records,
+        table_label="Customers",
+        field_limits={
+            'first_name': 100,
+            'last_name': 100,
+            'email': 255,
+            'phone_number': 20
+        },
+        unique_fields={'email', 'phone_number'}
+    )
 
-    if long_phones:
+    # Check the project's minimum customer volume.
+    if len(records) < 6000:
         raise ValueError(
-            f"Data quality check failed: "
-            f"{len(long_phones)} phone numbers exceed 20 characters."
+            "Customer validation failed: expected at least 6,000 records."
         )
 
-    print(f"Customer phone-length check passed for {len(records)} records.")
+    now = datetime.now()
+
+    for position, row in enumerate(records, start=1):
+        created_at = row.get('created_at')
+
+        # Our generated dataset requires a registration timestamp.
+        if not isinstance(created_at, datetime):
+            raise ValueError(
+                f"Customer {position}: created_at must be a datetime."
+            )
+
+        # Match the naive timestamps used by our generation functions.
+        if created_at.tzinfo is not None:
+            raise ValueError(
+                f"Customer {position}: expected a timezone-naive timestamp."
+            )
+
+        if created_at > now:
+            raise ValueError(
+                f"Customer {position}: created_at cannot be in the future."
+            )
+
+    print(f"Customer validation passed for {len(records)} records.")
 
 
-# Validate store records before loading them
+# Validate store records before loading them.
 def validate_stores(records):
-    long_phones = [
-        row for row in records
-        if len(row['phone_number']) > 20
-    ]
+    validate_text_fields(
+        records,
+        table_label="Stores",
+        field_limits={
+            'address': 255,
+            'city': 100,
+            'phone_number': 20
+        },
+        unique_fields={'phone_number'}
+    )
 
-    if long_phones:
+    # Check the project's store-volume target.
+    if not 3 <= len(records) <= 5:
         raise ValueError(
-            f"Data quality check failed: "
-            f"{len(long_phones)} phone numbers exceed 20 characters."
+            "Store validation failed: expected between 3 and 5 records."
         )
 
-    print(f"Stores phone-length check passed for {len(records)} records.")
+    now = datetime.now()
+
+    for position, row in enumerate(records, start=1):
+        opened_at = row.get('opened_at')
+
+        if not isinstance(opened_at, datetime):
+            raise ValueError(
+                f"Store {position}: opened_at must be a datetime."
+            )
+
+        if opened_at.tzinfo is not None:
+            raise ValueError(
+                f"Store {position}: expected a timezone-naive timestamp."
+            )
+
+        if opened_at > now:
+            raise ValueError(
+                f"Store {position}: opened_at cannot be in the future."
+            )
+
+    print(f"Store validation passed for {len(records)} records.")
 
 
 # Validate the menu catalogue before inserting it into PostgreSQL
@@ -592,7 +689,7 @@ def load_customers(connection, records):
             created_at
         )
         VALUES %s
-        RETURNING customer_id, email, created_at;
+        RETURNING customer_id, first_name, last_name, email, phone_number, created_at;
     """
 
     with connection.cursor() as cursor:
@@ -610,10 +707,13 @@ def load_customers(connection, records):
     return [
         {
             'customer_id': customer_id,
+            'first_name': first_name,
+            'last_name': last_name,
             'email': email,
+            'phone_number': phone_number,
             'created_at': created_at
         }
-        for customer_id, email, created_at in returned_rows
+        for customer_id, first_name, last_name, email, phone_number, created_at in returned_rows
     ]
 
 
@@ -875,12 +975,13 @@ def main():
                 customers,
                 "Customers",
                 """
-                    SELECT customer_id, email, created_at
+                    SELECT customer_id, first_name, last_name, email, phone_number, created_at
                     FROM customers
                     ORDER BY customer_id;
                 """,
                 load_customers
             )
+            validate_customers(loaded_customers)
 
             loaded_stores = reuse_or_load(
                 connection,
@@ -893,6 +994,7 @@ def main():
                 """,
                 load_stores
             )
+            validate_stores(loaded_stores)
 
             loaded_menu_items = reuse_or_load(
                 connection,
@@ -905,6 +1007,7 @@ def main():
                 """,
                 load_menu_items_to_db
             )
+            validate_menu_items(loaded_menu_items)
 
             loaded_ingredients = reuse_or_load(
                 connection,
@@ -917,6 +1020,7 @@ def main():
                 """,
                 load_ingredients
             )
+            validate_ingredients(loaded_ingredients)
 
             # Prepare orders using the actual saved customer/store records.
             orders = generate_orders(
@@ -943,6 +1047,12 @@ def main():
                     ORDER BY order_id;
                 """,
                 load_orders
+            )
+            validate_orders(
+                loaded_orders,
+                loaded_customers,
+                loaded_stores,
+                expected_count=30000
             )
 
             # Generate order lines using actual database IDs.
