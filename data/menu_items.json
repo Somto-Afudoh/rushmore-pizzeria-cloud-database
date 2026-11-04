@@ -1,0 +1,152 @@
+[
+    {
+    "name": "Small Margherita Pizza",
+    "category": "Pizza",
+    "size": "Small"
+    },
+    {
+    "name": "Medium Margherita Pizza",
+    "category": "Pizza",
+    "size": "Medium"
+    },
+    {
+    "name": "Large Margherita Pizza",
+    "category": "Pizza",
+    "size": "Large"
+    },
+    {
+    "name": "Small Garden Vegetable Pizza",
+    "category": "Pizza",
+    "size": "Small"
+    },
+    {
+    "name": "Medium Garden Vegetable Pizza",
+    "category": "Pizza",
+    "size": "Medium"
+    },
+    {
+    "name": "Large Garden Vegetable Pizza",
+    "category": "Pizza",
+    "size": "Large"
+    },
+    {
+    "name": "Small Pepperoni Pizza",
+    "category": "Pizza",
+    "size": "Small"
+    },
+    {
+    "name": "Medium Pepperoni Pizza",
+    "category": "Pizza",
+    "size": "Medium"
+    },
+    {
+    "name": "Large Pepperoni Pizza",
+    "category": "Pizza",
+    "size": "Large"
+    },
+    {
+    "name": "Small BBQ Chicken Pizza",
+    "category": "Pizza",
+    "size": "Small"
+    },
+    {
+    "name": "Medium BBQ Chicken Pizza",
+    "category": "Pizza",
+    "size": "Medium"
+    },
+    {
+    "name": "Large BBQ Chicken Pizza",
+    "category": "Pizza",
+    "size": "Large"
+    },
+    {
+    "name": "Small Meat Feast Pizza",
+    "category": "Pizza",
+    "size": "Small"
+    },
+    {
+    "name": "Medium Meat Feast Pizza",
+    "category": "Pizza",
+    "size": "Medium"
+    },
+    {
+    "name": "Large Meat Feast Pizza",
+    "category": "Pizza",
+    "size": "Large"
+    },
+    {
+    "name": "Still Water",
+    "category": "Drink",
+    "size": "500ml"
+    },
+    {
+    "name": "Sparkling Water",
+    "category": "Drink",
+    "size": "500ml"
+    },
+    {
+    "name": "Cola",
+    "category": "Drink",
+    "size": "330ml"
+    },
+    {
+    "name": "Diet Cola",
+    "category": "Drink",
+    "size": "330ml"
+    },
+    {
+    "name": "Lemonade",
+    "category": "Drink",
+    "size": "330ml"
+    },
+    {
+    "name": "Orange Juice",
+    "category": "Drink",
+    "size": "250ml"
+    },
+    {
+    "name": "Garlic Bread",
+    "category": "Side",
+    "size": "4 pieces"
+    },
+    {
+    "name": "Cheesy Garlic Bread",
+    "category": "Side",
+    "size": "4 pieces"
+    },
+    {
+    "name": "Potato Wedges",
+    "category": "Side",
+    "size": "Regular"
+    },
+    {
+    "name": "Chicken Wings",
+    "category": "Side",
+    "size": "6 pieces"
+    },
+    {
+    "name": "Mozzarella Sticks",
+    "category": "Side",
+    "size": "6 pieces"
+    },
+    {
+    "name": "Garden Salad",
+    "category": "Side",
+    "size": "Regular"
+    },
+    {
+    "name": "Chocolate Fudge Cake",
+    "category": "Dessert",
+    "size": "1 slice"
+    },
+    {
+    "name": "Vanilla Cheesecake",
+    "category": "Dessert",
+    "size": "1 slice"
+    },
+    {
+    "name": "Tiramisu",
+    "category": "Dessert",
+    "size": "1 portion"
+    }
+]
