@@ -167,3 +167,28 @@ WHERE item_id = (
     FROM order_items
     LIMIT 1
 );
+
+
+-- Population summary for all six tables.
+SELECT 'customers' AS table_name, COUNT(*) AS row_count
+FROM public.customers
+
+UNION ALL
+SELECT 'stores', COUNT(*)
+FROM public.stores
+
+UNION ALL
+SELECT 'menu_items', COUNT(*)
+FROM public.menu_items
+
+UNION ALL
+SELECT 'ingredients', COUNT(*)
+FROM public.ingredients
+
+UNION ALL
+SELECT 'orders', COUNT(*)
+FROM public.orders
+
+UNION ALL
+SELECT 'order_items', COUNT(*)
+FROM public.order_items;
